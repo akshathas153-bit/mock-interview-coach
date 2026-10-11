@@ -320,8 +320,15 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-zinc-50 p-8 gap-6">
-      <h1 className="text-3xl font-bold">Mock Interview Coach</h1>
-
+      <div className="w-full max-w-2xl flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Mock Interview Coach</h1>
+        <a
+          href="/history"
+          className="px-4 py-2 bg-zinc-800 text-white rounded-lg font-semibold hover:bg-zinc-900"
+        >
+          📚 My Past Sessions
+        </a>
+      </div>
       <div className="w-full max-w-2xl flex flex-col gap-3">
         <label className="block text-sm text-zinc-600">
           Role
