@@ -26,6 +26,8 @@ export default function Home() {
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
   const [feedbackError, setFeedbackError] = useState(null);
   const [level, setLevel] = useState('basic');
+  const [cameraOn, setCameraOn] = useState(true);
+  const [micOn, setMicOn] = useState(true);
 
   // Step 1: Start camera preview when page loads
   useEffect(() => {
@@ -45,6 +47,53 @@ export default function Home() {
     }
     startCamera();
   }, []);
+
+  async function toggleCamera() {
+    const stream = streamRef.current;
+    if (!stream) return;
+
+    if (cameraOn) {
+      stream.getVideoTracks().forEach((track) => {
+        track.stop();
+        stream.removeTrack(track);
+      });
+      setCameraOn(false);
+      return;
+    }
+
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      camStream.getVideoTracks().forEach((track) => stream.addTrack(track));
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraOn(true);
+    } catch (err) {
+      console.error('Camera access denied or unavailable:', err);
+    }
+  }
+
+  async function toggleMic() {
+    const stream = streamRef.current;
+    if (!stream) return;
+
+    if (micOn) {
+      stream.getAudioTracks().forEach((track) => {
+        track.stop();
+        stream.removeTrack(track);
+      });
+      setMicOn(false);
+      return;
+    }
+
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream.getAudioTracks().forEach((track) => stream.addTrack(track));
+      setMicOn(true);
+    } catch (err) {
+      console.error('Microphone access denied or unavailable:', err);
+    }
+  }
 
   // Step 2: Start recording
   function startRecording() {
@@ -200,6 +249,23 @@ export default function Home() {
         muted
         className="rounded-lg shadow-lg w-full max-w-2xl bg-black"
       />
+
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={toggleCamera}
+          className="px-4 py-2 text-sm rounded-lg font-semibold bg-zinc-800 text-white hover:bg-zinc-900"
+        >
+          {cameraOn ? '📷 Camera On' : '📷 Camera Off'}
+        </button>
+        <button
+          type="button"
+          onClick={toggleMic}
+          className="px-4 py-2 text-sm rounded-lg font-semibold bg-zinc-800 text-white hover:bg-zinc-900"
+        >
+          {micOn ? '🎤 Mic On' : '🎤 Mic Off'}
+        </button>
+      </div>
 
       <div className="flex gap-4">
         {!isRecording ? (
