@@ -29,6 +29,10 @@ export default function Home() {
   const [level, setLevel] = useState('basic');
   const [selectedCategory, setSelectedCategory] = useState('General');
   const [selectedQuestion, setSelectedQuestion] = useState('');
+  const [roleInput, setRoleInput] = useState('');
+  const [generatedQuestions, setGeneratedQuestions] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState(null);
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
 
@@ -174,6 +178,39 @@ export default function Home() {
       setStatus('error');
     }
   }
+  const CUSTOM_CATEGORY = 'Custom (from your role)';
+  const hasCustomQuestions =
+    Array.isArray(generatedQuestions) && generatedQuestions.length > 0;
+  const questionOptions =
+    selectedCategory === CUSTOM_CATEGORY
+      ? generatedQuestions
+      : QUESTIONS[selectedCategory];
+
+  async function generateQuestions() {
+    setIsGenerating(true);
+    setGenerateError(null);
+
+    try {
+      const res = await fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ role: roleInput, count: 5 }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error?.error?.message || data.error || 'Generate failed');
+
+      setGeneratedQuestions(data.questions);
+      setSelectedCategory(CUSTOM_CATEGORY);
+      setSelectedQuestion('');
+    } catch (err) {
+      setGenerateError(err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
   // Step 4.5: Get AI feedback from Gemini
   async function fetchFeedback() {
     if (!transcript || !analysis) return;
@@ -248,6 +285,32 @@ export default function Home() {
 
       <div className="w-full max-w-2xl flex flex-col gap-3">
         <label className="block text-sm text-zinc-600">
+          Role
+          <input
+            type="text"
+            value={roleInput}
+            onChange={(e) => setRoleInput(e.target.value)}
+            placeholder="e.g. Frontend Developer at a startup"
+            className="mt-1 w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white text-zinc-800"
+          />
+        </label>
+
+        <button
+          type="button"
+          onClick={generateQuestions}
+          disabled={isGenerating}
+          className="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50"
+        >
+          {isGenerating ? 'Generating...' : 'Generate Questions for This Role'}
+        </button>
+
+        {generateError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{generateError}</p>
+          </div>
+        )}
+
+        <label className="block text-sm text-zinc-600">
           Category
           <select
             value={selectedCategory}
@@ -262,6 +325,9 @@ export default function Home() {
                 {category}
               </option>
             ))}
+            {hasCustomQuestions && (
+              <option value={CUSTOM_CATEGORY}>{CUSTOM_CATEGORY}</option>
+            )}
           </select>
         </label>
 
@@ -273,7 +339,7 @@ export default function Home() {
             className="mt-1 w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white text-zinc-800"
           >
             <option value="">Select a question</option>
-            {QUESTIONS[selectedCategory].map((q) => (
+            {questionOptions.map((q) => (
               <option key={q} value={q}>
                 {q}
               </option>
