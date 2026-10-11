@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { analyzeAll } from '@/lib/analyze';
+import { QUESTIONS } from '@/lib/questions';
 
 export default function Home() {
   const videoRef = useRef(null);
@@ -26,6 +27,8 @@ export default function Home() {
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
   const [feedbackError, setFeedbackError] = useState(null);
   const [level, setLevel] = useState('basic');
+  const [selectedCategory, setSelectedCategory] = useState('General');
+  const [selectedQuestion, setSelectedQuestion] = useState('');
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
 
@@ -187,6 +190,7 @@ export default function Home() {
           transcript,
           analysis,
           level,
+          question: selectedQuestion,
         }),
       });
 
@@ -241,6 +245,48 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-zinc-50 p-8 gap-6">
       <h1 className="text-3xl font-bold">Mock Interview Coach</h1>
+
+      <div className="w-full max-w-2xl flex flex-col gap-3">
+        <label className="block text-sm text-zinc-600">
+          Category
+          <select
+            value={selectedCategory}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setSelectedQuestion('');
+            }}
+            className="mt-1 w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white text-zinc-800"
+          >
+            {Object.keys(QUESTIONS).map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block text-sm text-zinc-600">
+          Question
+          <select
+            value={selectedQuestion}
+            onChange={(e) => setSelectedQuestion(e.target.value)}
+            className="mt-1 w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white text-zinc-800"
+          >
+            <option value="">Select a question</option>
+            {QUESTIONS[selectedCategory].map((q) => (
+              <option key={q} value={q}>
+                {q}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {selectedQuestion && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="font-bold text-zinc-800">{selectedQuestion}</p>
+          </div>
+        )}
+      </div>
 
       <video
         ref={videoRef}
