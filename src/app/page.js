@@ -17,7 +17,7 @@ export default function Home() {
   // Analysis pipeline state
   const [isProcessing, setIsProcessing] = useState(false);
   const [jobId, setJobId] = useState(null);
-  const [status, setStatus] = useState(null); // queued | processing | completed | error
+  const [status, setStatus] = useState(null);
   const [transcript, setTranscript] = useState(null);
   const [words, setWords] = useState(null);
   const [duration, setDuration] = useState(null);
@@ -35,6 +35,11 @@ export default function Home() {
   const [generateError, setGenerateError] = useState(null);
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
+
+  // Save session state
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [savedVideoUrl, setSavedVideoUrl] = useState(null);
 
   // Step 1: Start camera preview when page loads
   useEffect(() => {
@@ -102,7 +107,6 @@ export default function Home() {
     }
   }
 
-  // Step 2: Start recording
   function startRecording() {
     if (!streamRef.current) return;
     chunksRef.current = [];
@@ -122,9 +126,12 @@ export default function Home() {
 
     recorder.start();
     setIsRecording(true);
+
+    // Reset save state for a fresh session
+    setSavedVideoUrl(null);
+    setSaveError(null);
   }
 
-  // Step 3: Stop recording
   function stopRecording() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -132,7 +139,6 @@ export default function Home() {
     }
   }
 
-  // Step 4: Upload + Analyze
   async function analyzeRecording() {
     if (!recordedBlob) return;
 
@@ -143,9 +149,11 @@ export default function Home() {
     setAnalysis(null);
     setFeedback(null);
     setFeedbackError(null);
+    setSavedVideoUrl(null);
+    setSaveError(null);
     setStatus('uploading');
+
     try {
-      // 4a: Upload video → get AssemblyAI URL
       const formData = new FormData();
       formData.append('file', recordedBlob, 'recording.webm');
 
@@ -157,7 +165,6 @@ export default function Home() {
 
       if (!uploadRes.ok) throw new Error(uploadData.error?.message || 'Upload failed');
 
-      // 4b: Submit transcription job
       const submitRes = await fetch('/api/transcribe', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -170,7 +177,6 @@ export default function Home() {
       setJobId(submitData.id);
       setStatus('queued');
 
-      // 4c: Poll until completed
       pollUntilDone(submitData.id);
     } catch (err) {
       setAnalysisError(err.message);
@@ -178,6 +184,7 @@ export default function Home() {
       setStatus('error');
     }
   }
+
   const CUSTOM_CATEGORY = 'Custom (from your role)';
   const hasCustomQuestions =
     Array.isArray(generatedQuestions) && generatedQuestions.length > 0;
@@ -211,7 +218,6 @@ export default function Home() {
     }
   }
 
-  // Step 4.5: Get AI feedback from Gemini
   async function fetchFeedback() {
     if (!transcript || !analysis) return;
 
@@ -242,7 +248,41 @@ export default function Home() {
       setIsLoadingFeedback(false);
     }
   }
-  // Step 5: Poll the status route every 3 seconds
+
+  async function saveSession() {
+    if (!recordedBlob || !transcript) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSavedVideoUrl(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', recordedBlob, 'recording.webm');
+      formData.append('question', selectedQuestion || '');
+      formData.append('transcript', transcript || '');
+      formData.append('analysis', JSON.stringify(analysis || null));
+      formData.append('feedback', JSON.stringify(feedback || null));
+      formData.append('audioDuration', String(duration || 0));
+      formData.append('level', level || 'basic');
+
+      const res = await fetch('/api/save-session', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+
+      setSavedVideoUrl(data.session.video_url);
+    } catch (err) {
+      setSaveError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function pollUntilDone(id) {
     const interval = setInterval(async () => {
       try {
@@ -256,7 +296,6 @@ export default function Home() {
           setWords(data.words);
           setDuration(data.audio_duration);
 
-          // Run the analysis right away
           const result = analyzeAll({
             transcript: data.text,
             words: data.words,
@@ -514,8 +553,8 @@ export default function Home() {
                 )}
               </div>
 
-                           {/* Pace panel */}
-                           <div className="p-4 bg-white rounded-lg shadow">
+              {/* Pace panel */}
+              <div className="p-4 bg-white rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-2">Speaking Pace</h2>
                 <p className="text-zinc-700">
                   <span className="font-mono text-2xl">{analysis.pace.wpm}</span>
@@ -606,6 +645,40 @@ export default function Home() {
                   )}
                 </>
               )}
+
+              {/* Save session button */}
+              <div className="p-4 bg-white rounded-lg shadow">
+                <h2 className="text-xl font-semibold mb-3">Save This Session</h2>
+                <button
+                  onClick={saveSession}
+                  disabled={isSaving || !transcript}
+                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving...' : 'Save Session'}
+                </button>
+
+                {saveError && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-600 text-sm">{saveError}</p>
+                  </div>
+                )}
+
+                {savedVideoUrl && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-800 text-sm font-semibold">
+                      ✅ Saved successfully!
+                    </p>
+                    <a
+                      href={savedVideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-700 text-sm underline break-all"
+                    >
+                      View saved video
+                    </a>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
