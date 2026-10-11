@@ -321,15 +321,28 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-zinc-50 p-8 gap-6">
       <div className="w-full max-w-2xl flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Mock Interview Coach</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Mock Interview Coach</h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            Practice interviews with AI feedback on your delivery.
+          </p>
+        </div>
         <a
           href="/history"
-          className="px-4 py-2 bg-zinc-800 text-white rounded-lg font-semibold hover:bg-zinc-900"
+          className="px-4 py-2 bg-zinc-800 text-white rounded-lg font-semibold hover:bg-zinc-900 whitespace-nowrap"
         >
           📚 My Past Sessions
         </a>
       </div>
+
       <div className="w-full max-w-2xl flex flex-col gap-3">
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <span className="font-semibold">How to use:</span> Pick a role below and
+            generate questions, or choose a category and question. Then record your
+            answer, upload for analysis, and get AI feedback.
+          </p>
+        </div>
         <label className="block text-sm text-zinc-600">
           Role
           <input
