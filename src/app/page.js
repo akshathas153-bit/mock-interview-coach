@@ -25,6 +25,9 @@ export default function Home() {
   const [analysis, setAnalysis] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  const [rewrite, setRewrite] = useState(null);
+  const [isLoadingRewrite, setIsLoadingRewrite] = useState(false);
+  const [rewriteError, setRewriteError] = useState(null);
   const [feedbackError, setFeedbackError] = useState(null);
   const [level, setLevel] = useState('basic');
   const [selectedCategory, setSelectedCategory] = useState('General');
@@ -147,6 +150,8 @@ export default function Home() {
     setFeedback(null);
     setFeedbackError(null);
     setSavedVideoUrl(null);
+    setRewrite(null);
+    setRewriteError(null);
     setSaveError(null);
     setStatus('uploading');
 
@@ -212,6 +217,38 @@ export default function Home() {
       setGenerateError(err.message);
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function fetchRewrite() {
+    if (!transcript) return;
+
+    setIsLoadingRewrite(true);
+    setRewriteError(null);
+    setRewrite(null);
+
+    try {
+      const res = await fetch('/api/rewrite', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          transcript,
+          question: selectedQuestion,
+          level,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.error?.message || data.error || 'Rewrite failed');
+      }
+
+      setRewrite(data.rewrite);
+    } catch (err) {
+      setRewriteError(err.message);
+    } finally {
+      setIsLoadingRewrite(false);
     }
   }
 
@@ -587,6 +624,62 @@ export default function Home() {
                   </p>
                   <p className="text-xs text-zinc-400 mt-1">ideal: 120–160 wpm</p>
                 </div>
+              </div>
+
+                            {/* Rewrite My Answer */}
+                            <div className="p-4 bg-white rounded-lg shadow">
+                <h2 className="text-xl font-semibold mb-3">Rewrite My Answer</h2>
+                <p className="text-sm text-zinc-500 mb-3">
+                  See how a professional interviewer would expect this answer to sound.
+                </p>
+
+                <button
+                  onClick={fetchRewrite}
+                  disabled={isLoadingRewrite}
+                  className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {isLoadingRewrite ? 'Rewriting...' : '✨ Rewrite My Answer'}
+                </button>
+
+                {rewriteError && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-600 text-sm">{rewriteError}</p>
+                  </div>
+                )}
+
+                {rewrite && (
+                  <div className="mt-3 flex flex-col gap-3">
+                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                      <h3 className="text-sm font-semibold text-indigo-800 mb-2">
+                        Polished version
+                      </h3>
+                      <p className="text-zinc-800 whitespace-pre-wrap">
+                        {rewrite.rewritten}
+                      </p>
+                    </div>
+
+                    {rewrite.changes && rewrite.changes.length > 0 && (
+                      <div className="p-3 bg-zinc-50 rounded-lg">
+                        <h4 className="text-xs font-semibold text-zinc-600 mb-2">
+                          What changed
+                        </h4>
+                        <ul className="list-disc list-inside text-sm text-zinc-700 space-y-1">
+                          {rewrite.changes.map((c, i) => (
+                            <li key={i}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {rewrite.tip && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800">
+                          <span className="font-semibold">Tip:</span> {rewrite.tip}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Level selector + Get AI Feedback */}
