@@ -9,12 +9,12 @@ export default function Home() {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
+  const resultsRef = useRef(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState(null);
   const [recordedVideoUrl, setRecordedVideoUrl] = useState(null);
 
-  // Analysis pipeline state
   const [isProcessing, setIsProcessing] = useState(false);
   const [jobId, setJobId] = useState(null);
   const [status, setStatus] = useState(null);
@@ -36,12 +36,10 @@ export default function Home() {
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
 
-  // Save session state
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [savedVideoUrl, setSavedVideoUrl] = useState(null);
 
-  // Step 1: Start camera preview when page loads
   useEffect(() => {
     async function startCamera() {
       try {
@@ -127,7 +125,6 @@ export default function Home() {
     recorder.start();
     setIsRecording(true);
 
-    // Reset save state for a fresh session
     setSavedVideoUrl(null);
     setSaveError(null);
   }
@@ -305,6 +302,13 @@ export default function Home() {
 
           setIsProcessing(false);
           clearInterval(interval);
+
+          setTimeout(() => {
+            resultsRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          }, 100);
         } else if (data.status === 'error') {
           setAnalysisError(data.error || 'Transcription failed');
           setIsProcessing(false);
@@ -336,13 +340,14 @@ export default function Home() {
       </div>
 
       <div className="w-full max-w-2xl flex flex-col gap-3">
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             <span className="font-semibold">How to use:</span> Pick a role below and
             generate questions, or choose a category and question. Then record your
             answer, upload for analysis, and get AI feedback.
           </p>
         </div>
+
         <label className="block text-sm text-zinc-600">
           Role
           <input
@@ -492,7 +497,7 @@ export default function Home() {
       )}
 
       {transcript && (
-        <div className="w-full max-w-2xl flex flex-col gap-4">
+        <div ref={resultsRef} className="w-full max-w-2xl flex flex-col gap-4">
           <div className="p-4 bg-white rounded-lg shadow">
             <h2 className="text-xl font-semibold mb-2">Transcript</h2>
             <p className="text-zinc-700 whitespace-pre-wrap">{transcript}</p>
@@ -514,76 +519,74 @@ export default function Home() {
 
           {analysis && (
             <>
-              {/* Filler words panel */}
-              <div className="p-4 bg-white rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-3">
-                  Filler Words
-                  <span className="ml-2 text-sm font-normal text-zinc-500">
-                    ({analysis.fillers.total} total)
-                  </span>
-                </h2>
+              {/* Stats grid: fillers, pauses, pace */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-white rounded-lg shadow">
+                  <h3 className="text-base font-semibold mb-3 flex items-baseline justify-between">
+                    Filler Words
+                    <span className="text-sm font-normal text-zinc-500">
+                      {analysis.fillers.total}
+                    </span>
+                  </h3>
 
-                {analysis.fillers.total === 0 ? (
-                  <p className="text-green-600 font-medium">
-                    🎉 No filler words detected — great job!
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(analysis.fillers.counts).map(([word, count]) => (
-                      <span
-                        key={word}
-                        className="px-3 py-1 bg-amber-50 border border-amber-200 rounded-full text-sm text-amber-800"
-                      >
-                        {word} <span className="font-bold">×{count}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Pauses panel */}
-              <div className="p-4 bg-white rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-3">
-                  Pauses
-                  <span className="ml-2 text-sm font-normal text-zinc-500">
-                    ({analysis.pauses.total} total)
-                  </span>
-                </h2>
-
-                <div className="flex gap-4 mb-3 text-sm">
-                  <span className="text-zinc-600">
-                    Minor (1.5–3s): <span className="font-bold">{analysis.pauses.minor}</span>
-                  </span>
-                  <span className="text-orange-600">
-                    Long (3–5s): <span className="font-bold">{analysis.pauses.long}</span>
-                  </span>
-                  <span className="text-red-600">
-                    Very long (5s+): <span className="font-bold">{analysis.pauses.veryLong}</span>
-                  </span>
+                  {analysis.fillers.total === 0 ? (
+                    <p className="text-green-600 text-sm font-medium">
+                      🎉 None — great!
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(analysis.fillers.counts)
+                        .slice(0, 6)
+                        .map(([word, count]) => (
+                          <span
+                            key={word}
+                            className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-full text-xs text-amber-800"
+                          >
+                            {word} <span className="font-bold">×{count}</span>
+                          </span>
+                        ))}
+                    </div>
+                  )}
                 </div>
 
-                {analysis.pauses.pauses.length > 0 && (
-                  <ul className="text-sm text-zinc-600 space-y-1">
-                    {analysis.pauses.pauses.slice(0, 5).map((p, i) => (
-                      <li key={i}>
-                        {p.durationSec}s pause after &ldquo;{p.after}&rdquo; (at {p.atSec}s)
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                <div className="p-4 bg-white rounded-lg shadow">
+                  <h3 className="text-base font-semibold mb-3 flex items-baseline justify-between">
+                    Pauses
+                    <span className="text-sm font-normal text-zinc-500">
+                      {analysis.pauses.total}
+                    </span>
+                  </h3>
 
-              {/* Pace panel */}
-              <div className="p-4 bg-white rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-2">Speaking Pace</h2>
-                <p className="text-zinc-700">
-                  <span className="font-mono text-2xl">{analysis.pace.wpm}</span>
-                  <span className="ml-2 text-zinc-500">words per minute</span>
-                </p>
-                <p className="text-sm text-zinc-500 mt-1">
-                  Rating: <span className="font-semibold">{analysis.pace.rating}</span>
-                  <span className="ml-2 text-zinc-400">(ideal: 120–160 wpm)</span>
-                </p>
+                  <ul className="text-sm space-y-1">
+                    <li className="text-zinc-600">
+                      Minor (1.5–3s): <span className="font-bold">{analysis.pauses.minor}</span>
+                    </li>
+                    <li className="text-orange-600">
+                      Long (3–5s): <span className="font-bold">{analysis.pauses.long}</span>
+                    </li>
+                    <li className="text-red-600">
+                      Very long (5s+): <span className="font-bold">{analysis.pauses.veryLong}</span>
+                    </li>
+                  </ul>
+
+                  {analysis.pauses.pauses.length > 0 && (
+                    <p className="text-xs text-zinc-500 mt-2">
+                      Longest: {Math.max(...analysis.pauses.pauses.map((p) => p.durationSec))}s
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-4 bg-white rounded-lg shadow">
+                  <h3 className="text-base font-semibold mb-3">Speaking Pace</h3>
+                  <p className="text-zinc-700">
+                    <span className="font-mono text-2xl">{analysis.pace.wpm}</span>
+                    <span className="ml-1 text-zinc-500 text-sm">wpm</span>
+                  </p>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    Rating: <span className="font-semibold">{analysis.pace.rating}</span>
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">ideal: 120–160 wpm</p>
+                </div>
               </div>
 
               {/* Level selector + Get AI Feedback */}
@@ -612,7 +615,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Feedback error */}
               {feedbackError && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-red-700 font-semibold">Feedback Error</p>
@@ -620,7 +622,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Feedback display */}
               {feedback && (
                 <>
                   <div className="p-4 bg-white rounded-lg shadow">
@@ -666,7 +667,6 @@ export default function Home() {
                 </>
               )}
 
-              {/* Save session button */}
               <div className="p-4 bg-white rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-3">Save This Session</h2>
                 <button
