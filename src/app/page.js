@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { analyzeAll } from '@/lib/analyze';
 import { QUESTIONS } from '@/lib/questions';
 
@@ -156,22 +157,32 @@ export default function Home() {
     setStatus('uploading');
 
     try {
-      const formData = new FormData();
-      formData.append('file', recordedBlob, 'recording.webm');
-
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const uploadData = await uploadRes.json();
-
-      if (!uploadRes.ok) throw new Error(uploadData.error?.message || 'Upload failed');
-
-      const submitRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ audioUrl: uploadData.upload_url }),
-      });
+           // 1. Upload directly to Supabase Storage (bypasses Vercel size limit)
+           const timestamp = Date.now();
+           const filename = `recording-${timestamp}.webm`;
+     
+           const { error: uploadError } = await supabase.storage
+             .from('recordings')
+             .upload(filename, recordedBlob, {
+               contentType: 'video/webm',
+               upsert: false,
+             });
+     
+           if (uploadError) throw new Error('Upload failed: ' + uploadError.message);
+     
+           // 2. Get the public URL
+           const { data: urlData } = supabase.storage
+             .from('recordings')
+             .getPublicUrl(filename);
+     
+           const publicUrl = urlData.publicUrl;
+     
+           // 3. Send the URL to our transcribe route
+           const submitRes = await fetch('/api/transcribe', {
+             method: 'POST',
+             headers: { 'content-type': 'application/json' },
+             body: JSON.stringify({ audioUrl: publicUrl }),
+           });
       const submitData = await submitRes.json();
 
       if (!submitRes.ok) throw new Error(submitData.error?.error || 'Submit failed');
@@ -291,18 +302,37 @@ export default function Home() {
     setSavedVideoUrl(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', recordedBlob, 'recording.webm');
-      formData.append('question', selectedQuestion || '');
-      formData.append('transcript', transcript || '');
-      formData.append('analysis', JSON.stringify(analysis || null));
-      formData.append('feedback', JSON.stringify(feedback || null));
-      formData.append('audioDuration', String(duration || 0));
-      formData.append('level', level || 'basic');
+      // Upload video directly to Supabase (bypasses Vercel size limit)
+      const timestamp = Date.now();
+      const filename = `recording-${timestamp}.webm`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('recordings')
+        .upload(filename, recordedBlob, {
+          contentType: 'video/webm',
+          upsert: false,
+        });
+
+      if (uploadError) throw new Error('Upload failed: ' + uploadError.message);
+
+      const { data: urlData } = supabase.storage
+        .from('recordings')
+        .getPublicUrl(filename);
+
+      const publicUrl = urlData.publicUrl;
 
       const res = await fetch('/api/save-session', {
         method: 'POST',
-        body: formData,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: publicUrl,
+          question: selectedQuestion || '',
+          transcript: transcript || '',
+          analysis: analysis || null,
+          feedback: feedback || null,
+          audioDuration: duration || 0,
+          level: level || 'basic',
+        }),
       });
 
       const data = await res.json();
