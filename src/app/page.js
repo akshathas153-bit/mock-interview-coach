@@ -831,4 +831,4 @@ export default function Home() {
   );
 }
 
-// Final deployment trigger
+// Deployment trigger: Cloudflare Proxy
