@@ -359,6 +359,7 @@ export default function Home() {
           setTranscript(data.text);
           setWords(data.words);
           setDuration(data.audio_duration);
+          setStatus('completed'); 
 
           const result = analyzeAll({
             transcript: data.text,
@@ -829,3 +830,5 @@ export default function Home() {
     </div>
   );
 }
+
+// Final deployment trigger
